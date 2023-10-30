@@ -16,6 +16,11 @@ typedef struct clientes_tercerizado{
     int peso_toltal_cli_tercerizados;
 }clientes_tercerizado;
 
+void alterarPesoRota(rota *rota_atual, int novoValor) {
+    rota_atual->pesototal = novoValor;
+
+
+}
 int retornar_toltal_durante_rota(grafo_solucao *grafo, rota *rota_atual){ // retorna total entregue durante rota
     int total_entregue = 0;
 
@@ -36,7 +41,7 @@ bool verificar_rota_cap_carga_carro(grafo_solucao *grafo, rota *rota_atual){ // 
     }
     else{return false;}
 }
-int calcular_peso_rota(grafo_solucao *grafo, rota *rota_atual) { // calcula o peso da rota
+int calcular_peso_rota(grafo_solucao *grafo, rota *rota_atual) {
     int peso_total = 0;
 
     // A matriz de distâncias é uma matriz 2D em grafo->matriz_distancias
@@ -47,7 +52,6 @@ int calcular_peso_rota(grafo_solucao *grafo, rota *rota_atual) { // calcula o pe
     for (int i = 0; i < rota_atual->total_de_clientes_visitado - 1; i++) {
         int cliente_atual = rota_atual->clientes_visitados[i];
         int prox_cliente = rota_atual->clientes_visitados[i + 1];
-        // Calcule a distância entre o cliente atual e o próximo cliente
         peso_total += matriz_distancias[cliente_atual][prox_cliente];
     }
 
@@ -55,23 +59,23 @@ int calcular_peso_rota(grafo_solucao *grafo, rota *rota_atual) { // calcula o pe
     int ultimo_cliente = rota_atual->clientes_visitados[rota_atual->total_de_clientes_visitado - 1];
     peso_total += matriz_distancias[ultimo_cliente][0];
     peso_total+=grafo->custo_carro;
-    //printf("\n%d",peso_total);
-    //printf("\n%d\n",peso_total);
     return peso_total;
 }
 rota gerar_rotas(arestas_minimas *arestas, grafo_solucao grafo) {
     int capacidade_maxima = grafo.capcacidade_carga_carro;
     int prox_vert;
     int peso_total_rota = 0;
+    int soma_total_entregado = 0;
+
+    // Inicializa um vetor dinâmico para armazenar os clientes visitados
+    int *clientes_visitados = (int *)malloc(grafo.n_entregra * sizeof(int));
+    int total_de_clientes_visitados = 0;
 
     prox_vert = arestas[0].destino;
     peso_total_rota += arestas[0].peso;
-
-    int soma_total_entregado = grafo.demanda_de_cliente[prox_vert - 1];
-
-    int *clientes_visitados = (int *)malloc(sizeof(int));
-    clientes_visitados[0] = prox_vert;
-    int total_de_clientes_visitados = 1;
+    clientes_visitados[total_de_clientes_visitados] = prox_vert;
+    total_de_clientes_visitados++;
+    soma_total_entregado += grafo.demanda_de_cliente[prox_vert - 1];
 
     for (int i = 1; i < grafo.n_entregra; i++) {
         if (arestas[i].origen == prox_vert) {
@@ -82,25 +86,31 @@ rota gerar_rotas(arestas_minimas *arestas, grafo_solucao grafo) {
                 break;
             }
 
-            clientes_visitados = (int *)realloc(clientes_visitados, (total_de_clientes_visitados + 1) * sizeof(int));
             clientes_visitados[total_de_clientes_visitados] = prox_vert;
             total_de_clientes_visitados++;
-
             peso_total_rota += arestas[i].peso;
             soma_total_entregado += demanda_cliente;
         }
     }
 
+    // Aloca exatamente o espaço necessário para armazenar os clientes visitados
+    int *clientes_visitados_final = (int *)malloc(total_de_clientes_visitados * sizeof(int));
+    memcpy(clientes_visitados_final, clientes_visitados, total_de_clientes_visitados * sizeof(int));
+
+    // Libera o espaço do vetor dinâmico temporário
+    free(clientes_visitados);
+
     rota rota_atual;
 
     rota_atual.pesototal = peso_total_rota;
     rota_atual.toltal_entregue = soma_total_entregado;
-    rota_atual.clientes_visitados = clientes_visitados;
+    rota_atual.clientes_visitados = clientes_visitados_final;
     rota_atual.total_de_clientes_visitado = total_de_clientes_visitados;
-    
-    int ultimo_cliente = clientes_visitados[total_de_clientes_visitados-1];
+
+    int ultimo_cliente = clientes_visitados_final[total_de_clientes_visitados - 1];
     rota_atual.pesototal += grafo.custo_carro;
-    rota_atual.pesototal += grafo.matriz_custo[ultimo_cliente][0]; // calcular peso do ultimo cliente visitado de volta para o deposito
+    rota_atual.pesototal += grafo.matriz_custo[ultimo_cliente][0]; // calcular peso do último cliente visitado de volta para o depósito
+
     return rota_atual;
 }
 void remover_clientes_visitados_grafo(grafo_solucao grafo,rota rota1){
@@ -152,22 +162,18 @@ rota movimento_em_unica_rota(rota *rota_atual, grafo_solucao *grafo) {
             }
             
         }
+        
     }
+    free(rota_atual->clientes_visitados);
     // Retorna a melhor rota encontrada na vizinhança
     return melhor_rota;
 }
-rota *troca_clientes_entre_rotas(rota *rotas, int num_rotas, grafo_solucao *grafo) {
-    // Aloca memória para uma matriz que armazenará as novas rotas após a troca de clientes
-    rota *novas_rotas = (rota*)malloc(num_rotas * sizeof(rota));
-    // Faz uma cópia das rotas originais nas novas rotas
-    for (int i = 0; i < num_rotas; i++) {
-        novas_rotas[i].clientes_visitados = (int*)malloc(sizeof(int) * rotas[i].total_de_clientes_visitado);
-        memcpy(novas_rotas[i].clientes_visitados, rotas[i].clientes_visitados, sizeof(int) * rotas[i].total_de_clientes_visitado);
-        novas_rotas[i].pesototal = calcular_peso_rota(grafo, &rotas[i]);
-        novas_rotas[i].toltal_entregue = rotas[i].toltal_entregue;
-        novas_rotas[i].total_de_clientes_visitado = rotas[i].total_de_clientes_visitado;
+void modificarClientesVisitados(rota *rota_atual, int novoValor, int indice) {
+    if (indice >= 0 && indice < rota_atual->total_de_clientes_visitado) {
+        rota_atual->clientes_visitados[indice] = novoValor;
     }
-
+}
+void troca_clientes_entre_rotas(rota *rotas, int num_rotas, grafo_solucao *grafo) {
     // Percorre todas as combinações possíveis de troca de clientes entre as rotas
     for (int i = 0; i < num_rotas; i++) {
         for (int j = 0; j < num_rotas; j++) {
@@ -175,36 +181,35 @@ rota *troca_clientes_entre_rotas(rota *rotas, int num_rotas, grafo_solucao *graf
                 for (int cliente_i = 0; cliente_i < rotas[i].total_de_clientes_visitado; cliente_i++) {
                     for (int cliente_j = 0; cliente_j < rotas[j].total_de_clientes_visitado; cliente_j++) {
                         // Realiza a troca dos clientes entre as rotas
-                        int temp = novas_rotas[i].clientes_visitados[cliente_i];
-                        novas_rotas[i].clientes_visitados[cliente_i] = novas_rotas[j].clientes_visitados[cliente_j];
-                        novas_rotas[j].clientes_visitados[cliente_j] = temp;
+                        int temp = rotas[i].clientes_visitados[cliente_i];
+                        modificarClientesVisitados(&rotas[i], rotas[j].clientes_visitados[cliente_j], cliente_i);
+                        modificarClientesVisitados(&rotas[j], temp, cliente_j);
 
                         // Calcula os pesos das novas rotas
-                        int peso_rota_i = calcular_peso_rota(grafo, &novas_rotas[i]);
-                        int peso_rota_j = calcular_peso_rota(grafo, &novas_rotas[j]);
+                        int peso_rota_i = calcular_peso_rota(grafo, &rotas[i]);
+                        int peso_rota_j = calcular_peso_rota(grafo, &rotas[j]);
 
-                        // Verifica se a troca resulta em rotas com menor peso total e tbm verifica se respeita a capacidade de entrega do carro
-                        if (peso_rota_i + peso_rota_j < novas_rotas[i].pesototal + novas_rotas[j].pesototal && verificar_rota_cap_carga_carro(grafo, &novas_rotas[i])==true && verificar_rota_cap_carga_carro(grafo, &novas_rotas[j])==true) {
+                        // Verifica se a troca resulta em rotas com menor peso total e respeita a capacidade de entrega do carro
+                        if (peso_rota_i + peso_rota_j < rotas[i].pesototal + rotas[j].pesototal /*&&
+                            verificar_rota_cap_carga_carro(grafo, &rotas[i]) &&
+                            verificar_rota_cap_carga_carro(grafo, &rotas[j])*/) {
                             // Atualiza os pesos das rotas com os novos valores
-                            novas_rotas[i].pesototal = peso_rota_i;
-                            novas_rotas[j].pesototal = peso_rota_j;
-                            novas_rotas[i].toltal_entregue = retornar_toltal_durante_rota(grafo, &novas_rotas[i]);
-                            novas_rotas[j].toltal_entregue = retornar_toltal_durante_rota(grafo, &novas_rotas[j]);
+                            alterarPesoRota(&rotas[i], peso_rota_i);
+                            alterarPesoRota(&rotas[j], peso_rota_j);
+                            rotas[i].toltal_entregue = retornar_toltal_durante_rota(grafo, &rotas[i]);
+                            rotas[j].toltal_entregue = retornar_toltal_durante_rota(grafo, &rotas[j]);
                         } else {
                             // Desfaz a troca
-                            temp = novas_rotas[i].clientes_visitados[cliente_i];
-                            novas_rotas[i].clientes_visitados[cliente_i] = novas_rotas[j].clientes_visitados[cliente_j];
-                            novas_rotas[j].clientes_visitados[cliente_j] = temp;
+                            temp = rotas[i].clientes_visitados[cliente_i];
+                            modificarClientesVisitados(&rotas[i], rotas[j].clientes_visitados[cliente_j], cliente_i);
+                            modificarClientesVisitados(&rotas[j], temp, cliente_j);
                         }
                     }
-              }
+                }
             }
         }
     }
-
-    return novas_rotas;
 }
-
 clientes_tercerizado verificar_clientes_a_tercerizar(rota *rota_atual, grafo_solucao *grafo) { // verifica quais clientes nao foram atingidos pelos carros e terceriza eles
     clientes_tercerizado c1;
     int count = 0;
@@ -242,6 +247,7 @@ clientes_tercerizado verificar_clientes_a_tercerizar(rota *rota_atual, grafo_sol
 
     return c1;
 }
+
 int calcular_peso_tercerizado(clientes_tercerizado clientes_tercerizados1, int num_clientes_tercerizados, grafo_solucao *grafo) {
     int peso_total =0;
     
@@ -251,31 +257,34 @@ int calcular_peso_tercerizado(clientes_tercerizado clientes_tercerizados1, int n
     }
     return peso_total;
 }
-void movimento_entres_rotas_e_tercerizado(rota *rotas, int num_rotas, clientes_tercerizado * clientes_tercerizados, int num_clientes_tercerizados, grafo_solucao *grafo) {
-       for (int i = 0; i < num_clientes_tercerizados; i++) {
-        for (int j = 0; j < num_rotas; j++) {
-            for (int k = 0; k < rotas[j].total_de_clientes_visitado; k++) {
-                int temp = rotas[j].clientes_visitados[k];
-                rotas[j].clientes_visitados[k] = clientes_tercerizados->clientes_tercerizado[i];
-                clientes_tercerizados->clientes_tercerizado[i] = temp;
 
-                int peso_antigo_tercerizado = clientes_tercerizados->peso_toltal_cli_tercerizados;
-                int peso_novo_tercerizado = calcular_peso_tercerizado(*clientes_tercerizados, num_clientes_tercerizados, grafo);
-            
-                int peso_total = calcular_peso_rota(grafo, &rotas[j]);
 
-                if (peso_total + peso_novo_tercerizado < rotas[j].pesototal + peso_antigo_tercerizado && verificar_rota_cap_carga_carro(grafo, &rotas[j])) {
-                    rotas[j].pesototal = peso_total;
-                    rotas[j].toltal_entregue = retornar_toltal_durante_rota(grafo, &rotas[j]);
-                    clientes_tercerizados->peso_toltal_cli_tercerizados = peso_novo_tercerizado;
-                } else {
-                    // Desfazer a troca
-                    temp = rotas[j].clientes_visitados[k];
-                    rotas[j].clientes_visitados[k] = clientes_tercerizados->clientes_tercerizado[i];
+void movimento_entres_rotas_e_tercerizado(rota *rotas, int num_rotas, clientes_tercerizado *clientes_tercerizados, int num_clientes_tercerizados, grafo_solucao *grafo) {
+        for (int i = 0; i < num_clientes_tercerizados; i++) {
+            for (int j = 0; j < num_rotas; j++) {
+                for (int k = 0; k < rotas[j].total_de_clientes_visitado; k++) {
+                    int temp = rotas[j].clientes_visitados[k];
+                    modificarClientesVisitados(&rotas[j], clientes_tercerizados->clientes_tercerizado[i], k);
                     clientes_tercerizados->clientes_tercerizado[i] = temp;
+
+                    int peso_antigo_tercerizado = clientes_tercerizados->peso_toltal_cli_tercerizados;
+                    int peso_novo_tercerizado = calcular_peso_tercerizado(*clientes_tercerizados, num_clientes_tercerizados, grafo);
+                
+                    int peso_total_nova_rota = calcular_peso_rota(grafo, &rotas[j]);
+
+                    if (peso_total_nova_rota + peso_novo_tercerizado < rotas[j].pesototal + peso_antigo_tercerizado && verificar_rota_cap_carga_carro(grafo, &rotas[j])) {
+                        alterarPesoRota(&rotas[j], peso_total_nova_rota); // Chama a função para alterar o peso da rota
+                        rotas[j].toltal_entregue = retornar_toltal_durante_rota(grafo, &rotas[j]);
+                        clientes_tercerizados->peso_toltal_cli_tercerizados = peso_novo_tercerizado;
+                    } else {
+                        // Desfazer a troca
+                        temp = rotas[j].clientes_visitados[k];
+                        modificarClientesVisitados(&rotas[j], clientes_tercerizados->clientes_tercerizado[i], k);
+                        clientes_tercerizados->clientes_tercerizado[i] = temp;
+                    }
                 }
             }
         }
     }
-}
+
 #endif
