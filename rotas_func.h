@@ -33,11 +33,11 @@ int retornar_toltal_durante_rota(grafo_solucao *grafo, rota *rota_atual){
 }
 
 bool verificar_rota_cap_carga_carro(grafo_solucao *grafo, rota *rota_atual){
-    // int total_entregue = 0;
+    int total_entregue = 0;
 
-    // for(int i = 0; i < rota_atual->total_de_clientes_visitado; i++) {
-    //     total_entregue += grafo->demanda_de_cliente[rota_atual->clientes_visitados[i]-1];
-    // }
+    for(int i = 0; i < rota_atual->total_de_clientes_visitado; i++) {
+        total_entregue += grafo->demanda_de_cliente[rota_atual->clientes_visitados[i]-1];
+    }
 
     // Verifica se a rota respeita a capacidade de carga do carro, 
     // comparando o total entregue a capacidade máxima
